@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lead to Booking</title>
+  <meta name="description" content="An AI agent replies to every enquiry with visit times. Anything it may not send on its own waits for you.">
+  <link rel="stylesheet" href="assets/styles.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/sql.js@1.14.2/dist/sql-wasm.js"></script>
+  <script type="module" src="assets/app.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail">
+      <nav class="nav" role="tablist" aria-label="Workflows" aria-orientation="vertical">
+        <button class="nav-item" role="tab" type="button" id="tab-intake" data-view="intake" aria-controls="view-intake" aria-selected="true">
+          <span class="nav-num">1</span>
+          <span class="nav-text"><span class="nav-label">Intake &amp; agent</span><span class="nav-sub" id="nav-intake-sub">&nbsp;</span></span>
+        </button>
+        <button class="nav-item" role="tab" type="button" id="tab-convo" data-view="convo" aria-controls="view-convo" aria-selected="false">
+          <span class="nav-num">2</span>
+          <span class="nav-text"><span class="nav-label">Conversations &amp; bookings</span><span class="nav-sub" id="nav-convo-sub">&nbsp;</span></span>
+        </button>
+      </nav>
+
+      <fieldset class="mode-box">
+        <legend class="clock-title">Agent mode</legend>
+        <div class="modes" id="modes"></div>
+        <p class="mode-note">Prices, complaints and instructions to the agent always come to you.</p>
+      </fieldset>
+
+      <section class="clock" aria-labelledby="clock-title">
+        <h2 class="clock-title" id="clock-title">Clock</h2>
+        <p class="clock-time mono" id="clock-time">--:--</p>
+        <p class="clock-day" id="clock-day">&nbsp;</p>
+        <p class="clock-hours" id="clock-hours">&nbsp;</p>
+        <p class="mode-note">Simulated time. Move it forward to send check-ins and reminders.</p>
+        <div class="clock-buttons" role="group" aria-label="Move the clock forward">
+          <button class="btn btn-quiet" type="button" data-advance="15">+15 min</button>
+          <button class="btn btn-quiet" type="button" data-advance="60">+1 hour</button>
+          <button class="btn btn-quiet" type="button" data-advance="1440">+1 day</button>
+        </div>
+        <button class="btn btn-accent clock-next" type="button" id="next-due" disabled>
+          <span class="next-label">Jump to next due</span>
+          <span class="next-what" id="next-what">&nbsp;</span>
+        </button>
+      </section>
+
+      <div class="rail-foot">
+        <span class="db-status" id="db-status"><span class="dot"></span><span class="status-text">Loading…</span></span>
+        <button class="btn btn-quiet btn-sm" id="reset" type="button">Reset</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <section class="view" id="view-intake" role="tabpanel" aria-labelledby="tab-intake">
+        <header class="view-head">
+          <h1>Intake &amp; agent</h1>
+          <p>Enquiries arrive by web form, email, text, missed call and referral. An AI agent reads each one and replies with visit times. Anything it may not send on its own waits under <strong>Needs you</strong>.</p>
+        </header>
+
+        <div class="intake">
+          <section class="pane pane-inbox" aria-labelledby="h-inbox">
+            <h2 class="pane-title" id="h-inbox">Inbox <span class="pane-note">work down from the top</span></h2>
+            <ul class="inbox" id="inbox" aria-label="Waiting messages"></ul>
+
+            <div class="compose" aria-label="Selected message">
+              <p class="compose-meta" id="compose-meta"></p>
+              <p class="compose-hint" id="compose-hint"></p>
+              <button class="btn btn-accent compose-go" id="process" type="button" disabled>Process</button>
+              <label class="sr-only" for="raw">Message as received</label>
+              <textarea id="raw" class="mono" spellcheck="false" rows="6" readonly></textarea>
+              <p class="notice" id="intake-notice" role="status" hidden></p>
+            </div>
+          </section>
+
+          <section class="pane pane-trace" aria-labelledby="h-trace">
+            <h2 class="pane-title" id="h-trace">What happened</h2>
+            <ol class="trace" id="trace"></ol>
+          </section>
+
+          <section class="pane pane-records" aria-labelledby="h-queue">
+            <h2 class="pane-title" id="h-queue">Needs you <span class="count" id="queue-count">0</span></h2>
+            <div class="queue" id="queue"></div>
+            <h2 class="pane-title pane-title-gap">Contacts <span class="count" id="contact-count">0</span></h2>
+            <ul class="contacts" id="contacts" aria-label="Contacts"></ul>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="view-convo" role="tabpanel" aria-labelledby="tab-convo" hidden>
+        <header class="view-head">
+          <h1>Conversations &amp; bookings</h1>
+          <p>Each enquiry is one conversation. Customers book by replying with the number of a time; if they go quiet, the agent follows up with fresh times.</p>
+        </header>
+
+        <div class="kpis" id="kpis"></div>
+
+        <div class="convo">
+          <section class="conv-pane" aria-labelledby="h-convs">
+            <h2 class="pane-title" id="h-convs">Conversations</h2>
+            <div class="filters" id="conv-filters" role="group" aria-label="Show"></div>
+            <ul class="conv-list" id="conv-list"></ul>
+          </section>
+          <section class="thread" id="thread" aria-live="polite"></section>
+          <section class="cal-pane" aria-labelledby="h-cal">
+            <h2 class="pane-title" id="h-cal">Visit calendar</h2>
+            <div class="calendar" id="calendar"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="activity" aria-labelledby="h-activity">
+        <h2 class="pane-title" id="h-activity">Audit log <span class="pane-note">newest first</span></h2>
+        <ol class="activity-list" id="activity"></ol>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
